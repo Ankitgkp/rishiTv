@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RishiTv</title>
+    <link rel="stylesheet" href="./index.css">
+</head>
+<body>
+
+<div>
+    <h3>Your Id: <span id="myId"></span></h3>
+    <h3>Online Users (click to connect)</h3>
+    <div id="users"></div>
+
+    <video id="local-video" autoplay muted></video>
+    <video id="remote-video" autoplay></video>
+
+    <p id="status"></p>
+</div>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+<script>
+    const socket = io();
+    let currentPeerId = null;
+    let localStream = null;
+
+    const peer = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.stunprotocol.org" }]
+    });
+
+    socket.on("connect", () => {
+        document.getElementById("myId").innerText = socket.id;
+    });
+
+    peer.ontrack = event => {
+        document.getElementById("remote-video").srcObject = event.streams[0];
+    };
+
+    peer.onicecandidate = event => {
+        if (event.candidate && currentPeerId) {
+            socket.emit("ice:candidate", {
+                to: currentPeerId,
+                candidate: event.candidate
+            });
+        }
+    };
+
+    socket.on("ice:candidate", candidate => {
+        peer.addIceCandidate(new RTCIceCandidate(candidate));
+    });
+
+    const getUserMedia = async () => {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
+        document.getElementById("local-video").srcObject = localStream;
+    };
+
+    const createCall = async to => {
+        currentPeerId = to;
+        document.getElementById("status").innerText = `Calling ${to}`;
+
+        const offer = await peer.createOffer();
+        await peer.setLocalDescription(offer);
+
+        socket.emit("outgoing:call", {
+            fromOffer: offer,
+            to
+        });
+    };
+
+    socket.on("incomming:call", async data => {
+        currentPeerId = data.from;
+
+        await peer.setRemoteDescription(new RTCSessionDescription(data.offer));
+        const answer = await peer.createAnswer();
+        await peer.setLocalDescription(answer);
+
+        socket.emit("call:accepted", {
+            answere: answer,
+            to: data.from
+        });
+    });
+
+    socket.on("incomming:answere", async data => {
+        await peer.setRemoteDescription(new RTCSessionDescription(data.offer));
+    });
+
+    const getAndUpdateUsers = async () => {
+        const usersDiv = document.getElementById("users");
+        usersDiv.innerHTML = "";
+
+        const response = await fetch("/users");
+        const users = await response.json();
+
+        users.forEach(user => {
+            if (user[0] === socket.id) return;
+            const btn = document.createElement("button");
+            btn.innerText = user[0];
+            btn.onclick = () => createCall(user[0]);
+            usersDiv.appendChild(btn);
+        });
+    };
+
+    socket.on("user:joined", () => {
+        getAndUpdateUsers();
+    });
+
+    window.addEventListener("load", async () => {
+        await getUserMedia();
+        await getAndUpdateUsers();
+    });
+</script>
+
+</body>
+</html>
