@@ -10,7 +10,6 @@ const RoomPage = () => {
   const [myStream, setMyStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
-  /* ------------------ ADD TRACKS SAFELY ------------------ */
   const addTracksOnce = useCallback((stream: MediaStream) => {
     const senders = peer.peer.getSenders();
 
@@ -25,7 +24,6 @@ const RoomPage = () => {
     });
   }, []);
 
-  /* ------------------ USER JOINED ------------------ */
   const handleUserJoined = useCallback(
     ({ id }: { email: string; id: string }) => {
       setRemoteSocketId(id);
@@ -33,7 +31,6 @@ const RoomPage = () => {
     [],
   );
 
-  /* ------------------ CALL USER ------------------ */
   const handleCallUser = useCallback(async () => {
     if (!socket || !remoteSocketId) return;
 
@@ -49,7 +46,6 @@ const RoomPage = () => {
     socket.emit("user:call", { to: remoteSocketId, offer });
   }, [socket, remoteSocketId, addTracksOnce]);
 
-  /* ------------------ INCOMING CALL ------------------ */
   const handleIncomingCall = useCallback(
     async ({ from, offer }: { from: string; offer: any }) => {
       setRemoteSocketId(from);
@@ -68,7 +64,6 @@ const RoomPage = () => {
     [socket, addTracksOnce],
   );
 
-  /* ------------------ CALL ACCEPTED ------------------ */
   const handleCallAccepted = useCallback(
     async ({ ans }: { from: string; ans: any }) => {
       await peer.setLocalDescription(ans);
@@ -76,7 +71,7 @@ const RoomPage = () => {
     [],
   );
 
-  /* ------------------ NEGOTIATION ------------------ */
+
   const handleNegotiationNeeded = useCallback(async () => {
     if (!socket || !remoteSocketId) return;
 
@@ -96,14 +91,13 @@ const RoomPage = () => {
     await peer.setLocalDescription(ans);
   }, []);
 
-  /* ------------------ TRACK EVENT ------------------ */
   useEffect(() => {
     peer.peer.ontrack = (event) => {
       setRemoteStream(event.streams[0]);
     };
   }, []);
 
-  /* ------------------ NEGOTIATION LISTENER ------------------ */
+
   useEffect(() => {
     peer.peer.addEventListener("negotiationneeded", handleNegotiationNeeded);
     return () => {
@@ -114,7 +108,6 @@ const RoomPage = () => {
     };
   }, [handleNegotiationNeeded]);
 
-  /* ------------------ SOCKET LISTENERS ------------------ */
   useEffect(() => {
     if (!socket) return;
 
@@ -140,7 +133,6 @@ const RoomPage = () => {
     handleNegoFinal,
   ]);
 
-  /* ------------------ UI ------------------ */
   return (
     <div>
       <h1>Room Page</h1>
